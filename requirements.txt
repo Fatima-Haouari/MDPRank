@@ -1,0 +1,4 @@
+conda create -n WM-MDPRank python=3.7 pip tensorflow
+
+conda activate WM-MDPRank
+pip install tensorflow==1.13.1 works
