@@ -45,7 +45,7 @@ class QRL_L2R(object):
 		# self.sess = tf.Session()
 		self.sess.run(tf.global_variables_initializer())
 		# self.current_step = 0
-		self.ep_docs, self.ep_label, self.ep_rs = [],[],[]		
+		self.ep_docs, self.ep_label, self.ep_rs, self.ep_doc_ids = [],[],[], []
 		# self.reduced_matrix = tf.eye(self.feature_dim)
 		# self.tvars = tf.trainable_variables()
 
@@ -272,7 +272,7 @@ class QRL_L2R(object):
 
 
 	def reset_network(self):		
-		self.ep_docs, self.ep_label, self.ep_rs = [],[],[]
+		self.ep_docs, self.ep_label, self.ep_rs, self.ep_doc_ids = [],[],[],[]
 
 	def reward_standardized(self,rewards):
 		standard_rewards = rewards
@@ -303,12 +303,13 @@ class QRL_L2R(object):
 		print ("Model saved in file: ", save_path)
 
 
-	def store_transition(self,doc_feature,label):
+	def store_transition(self,doc_feature,label, doc_id):
 		# doc_feature mean currently selected document
 		# label means currently selected document' label
 		# reward means currently selected document' reward
 
 		self.ep_docs.append(doc_feature)
+		self.ep_doc_ids.append(doc_id)
 		# self.ep_label.append(label[0])
 		self.ep_label.append(label)
 		# self.ep_rs.append(reward)

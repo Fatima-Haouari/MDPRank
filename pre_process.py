@@ -223,6 +223,8 @@ def encode_feature(feature_str):
 	# print (feature_list)
 	return feature_list
 
+
+
 def encode_qid_batchlen(num):
 	return np.zeros([num,2], dtype = float)
 
@@ -270,7 +272,7 @@ def get_batch(df,feature_dim):
 	df: all data
 	batch_size: Maximum length of candidate documents for all pueries
 	'''
-	input_num =2
+	input_num = 3
 	dic = {}
 	for index,row in df.iterrows():
 		qid = row["query_ID"]
@@ -279,10 +281,10 @@ def get_batch(df,feature_dim):
 		label = int(row["flag"])
 		# exit()
 		if qid in dic:
-			dic[qid].append([feature,label])
+			dic[qid].append([feature,label, docid])
 		else:
 			dic.update({qid:[]})
-			dic[qid].append([feature,label])
+			dic[qid].append([feature,label, docid])
 
 	dic = feature_normal(dic, feature_dim)
 
@@ -310,7 +312,7 @@ def get_batch_with_test(df,feature_dim):
 	df: all data
 	batch_size: Maximum length of candidate documents for all pueries
 	'''
-	input_num =2
+	input_num = 3
 	dic = {}
 	for index,row in df.iterrows():
 		qid = row["query_ID"]
@@ -319,10 +321,10 @@ def get_batch_with_test(df,feature_dim):
 		label = int(row["flag"])
 		# exit()
 		if qid in dic:
-			dic[qid].append([feature,label])
+			dic[qid].append([feature,label, docid])
 		else:
 			dic.update({qid:[]})
-			dic[qid].append([feature,label])
+			dic[qid].append([feature,label, docid])
 
 	dic = feature_normal(dic, feature_dim)
 			

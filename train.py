@@ -7,8 +7,8 @@ import datetime
 # from pre_dateset import batch_gen_with_point_wise,load,prepare,batch_gen_with_single
 from pre_process import load_data, get_batch, get_each_query_length, get_batch_with_test
 from model_new import QRL_L2R
-
-from evaluation import evaluation_ranklists
+# from evaluation import evaluation_ranklists
+from evaluation import evaluate_trec_run
 import random
 # import evaluation as evaluation_test
 # import evaluation_test
@@ -19,6 +19,10 @@ import configure
 from numpy.random import seed
 seed(1)
 from tensorflow import set_random_seed
+import pandas as pd
+import global_variables as gb
+
+
 set_random_seed(2)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -53,14 +57,19 @@ data_file = log_dir + '/test_' + FLAGS.data + timeStamp
 para_file = log_dir + '/test_' + FLAGS.data + timeStamp + '_para'
 precision = data_file + 'precise'
 
-def predict(RL_L2R, dataset):
+def predict(RL_L2R, dataset, run_save_path = ""):
 
 	reward_sum = 0
 	label_collection = []
+	df_trec = pd.DataFrame(columns = [gb.QID, gb.Q0, gb.DOC_NO, gb.RANK, gb.SCORE, gb.TAG])
+
 	for data in get_batch_with_test(dataset, FLAGS.feature_dim):
 		doc_feature = data[0]
 		doc_label = data[1]
-		doc_len = data[2]
+		doc_ids = data[2]
+		doc_len = data[3]
+		qid = data[4]
+
 		for step in range(doc_len):
 			immediate_rewards = calcu_immediate_reward(step, doc_label)
 			selected_doc_index = RL_L2R.choose_doc(step, doc_feature, doc_label, immediate_rewards)
@@ -68,16 +77,41 @@ def predict(RL_L2R, dataset):
 			# selected_doc_index = RL_L2R.choose_doc(step,doc_feature)
 			current_doc = doc_feature[selected_doc_index]
 			current_label = doc_label[selected_doc_index]
+			current_doc_id = doc_ids[selected_doc_index][0]
 			doc_feature, doc_label = get_candidata_feature_label(selected_doc_index, doc_feature, doc_label) 
 			# reward = calcu_reward(step, current_label)
 			# RL_L2R.store_transition(current_doc,current_label,reward)			
-			RL_L2R.store_transition(current_doc,current_label)
+			RL_L2R.store_transition(current_doc, current_label, current_doc_id)
+
 		reward = calcu_reward(RL_L2R.ep_label)
 		label_collection.append(RL_L2R.ep_label)
-		RL_L2R.reset_network()
 		reward_sum += reward
+		df_trec = add_new_query(df_trec, qid, RL_L2R.ep_doc_ids)
+		RL_L2R.reset_network()
 
-	return label_collection, reward_sum
+	# save the run
+	if run_save_path != "":
+		if not os.path.isfile(run_save_path):
+			os.makedirs(os.path.dirname(run_save_path), exist_ok=True)
+		df_trec.to_csv(run_save_path, index=False, sep='\t', encoding="utf-8")
+
+
+	return label_collection, reward_sum, df_trec
+
+
+
+
+def add_new_query(df_trec, query_id, doc_ids):
+	df_query = pd.DataFrame(columns = [gb.QID, gb.Q0, gb.DOC_NO, gb.RANK, gb.SCORE, gb.TAG])
+	df_query[gb.DOC_NO] = doc_ids
+	df_query[gb.QID] = [query_id] * len(doc_ids)
+	df_query[gb.SCORE] = [1] * len(doc_ids)
+	df_query[gb.Q0] = [gb.Q0] * len(doc_ids)
+	df_query[gb.RANK] = [(i+1) for i in range(len((doc_ids)))]
+	df_query[gb.TAG] = ["RL_run"] * len(doc_ids)
+	df_trec = df_trec.append(df_query, ignore_index=True)
+	return df_trec
+
 
 def get_candidata_feature_label(index, doc_feature, doc_label):
 	r_doc_feature = np.delete(doc_feature, index, 0)
@@ -123,9 +157,12 @@ def calcu_immediate_reward(current_step, labels):
 	
 def train():
 	file_name = FLAGS.file_name
-	train_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/trainingset.txt")
-	test_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/testset.txt")
-	valid_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/validationset.txt")
+	train_set = load_data(FLAGS.train_data)
+	test_set =  load_data(FLAGS.train_data)
+	valid_set = load_data(FLAGS.train_data)
+	# train_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/trainingset.txt")
+	# test_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/testset.txt")
+	# valid_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/validationset.txt")
 	each_query_length = get_each_query_length()
 
 	log = open(precision,"w")
@@ -150,17 +187,19 @@ def train():
 		for data in get_batch(train_set, FLAGS.feature_dim):
 			doc_feature = data[0]
 			doc_label = data[1]
-			doc_len = data[2]
-			qid = data[3]
+			doc_ids = data[2]
+			doc_len = data[3]
+			qid = data[4]
 			# print ("doc_label : {}".format(doc_label))
 			for step in range(doc_len):
 				immediate_rewards = calcu_immediate_reward(step, doc_label)
 				selected_doc_index = RL_L2R.choose_doc(step, doc_feature, doc_label, immediate_rewards, True)
 				current_doc = doc_feature[selected_doc_index]
 				current_label = doc_label[selected_doc_index]
+				current_doc_id = doc_ids[selected_doc_index]
 				doc_feature, doc_label = get_candidata_feature_label(selected_doc_index, doc_feature, doc_label) 
 				# print (current_label)
-				RL_L2R.store_transition(current_doc,current_label)
+				RL_L2R.store_transition(current_doc,current_label, current_doc_id)
 
 			# print ("RL_L2R.ep_label : {}".format(RL_L2R.ep_label))
 			reward = calcu_reward(RL_L2R.ep_label)
@@ -175,9 +214,9 @@ def train():
 			# break
 
 		# train evaluation
-		train_predict_label_collection, train_reward = predict(RL_L2R, train_set)	
-		train_MAP, train_NDCG_at_1, train_NDCG_at_3, train_NDCG_at_5, train_NDCG_at_10, train_NDCG_at_20, train_MRR, train_P = evaluation_ranklists(train_predict_label_collection)
-		train_result_line = "## epoch {}, train MAP : {}, train_NDCG_at_1 : {}, train_NDCG_at_3 : {}, train_NDCG_at_5 : {}, train_NDCG_at_10 : {}, train_NDCG_at_20 : {}, train_MRR@20 : {}, train_P@20 : {}, \ntrain_reward : {}".format(i, train_MAP, train_NDCG_at_1, train_NDCG_at_3, train_NDCG_at_5, train_NDCG_at_10, train_NDCG_at_20, train_MRR, train_P, train_reward[0])
+		train_predict_label_collection, train_reward, df_train_trec = predict(RL_L2R, train_set)	
+		train_MAP, train_P1, train_P5, train_R5, train_R50  = evaluate_trec_run(df_train_trec)
+		train_result_line = "## epoch {}, train MAP@5 : {}, train_ P@1 : {}, train_P@5 : {}, train_ R@5 : {}, train_ R@50 : {}, \ntrain_reward : {}".format(i, train_MAP, train_P1, train_P5, train_R5, train_R50, train_reward[0])
 
 		print (train_result_line)		
 		log.write(train_result_line+"\n")	
@@ -185,16 +224,17 @@ def train():
 
 		
 		# valid evaluation
-		valid_predict_label_collection, valid_reward = predict(RL_L2R, valid_set)		
-		valid_MAP, valid_NDCG_at_1, valid_NDCG_at_3, valid_NDCG_at_5, valid_NDCG_at_10, valid_NDCG_at_20, valid_MRR, valid_P = evaluation_ranklists(valid_predict_label_collection)
-		valid_result_line = "## epoch {}, valid_MAP : {}, valid_NDCG_at_1 : {}, valid_NDCG_at_3 : {}, valid_NDCG_at_5 : {}, valid_NDCG_at_10 : {}, valid_NDCG_at_20 : {}, valid_MRR@20 : {}, valid_P@20 : {}, \nvalid_reward : {}".format(i, valid_MAP, valid_NDCG_at_1, valid_NDCG_at_3, valid_NDCG_at_5, valid_NDCG_at_10, valid_NDCG_at_20, valid_MRR, valid_P, valid_reward[0])
+		valid_predict_label_collection, valid_reward, df_dev_trec = predict(RL_L2R, valid_set)	
+		valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50  = evaluate_trec_run(df_dev_trec)
+		valid_result_line = "## epoch {}, valid MAP@5 : {}, valid_ P@1 : {}, valid_P@5 : {}, valid_ R@5 : {}, valid_ R@50 : {}, \nvalid_reward : {}".format(i, valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50, valid_reward[0])
+
 		print (valid_result_line)
 		log.write(valid_result_line+"\n")
 
 		# save param		
 		if valid_reward > max_reward:
 			max_reward = valid_reward[0] 
-			write_str = str(max_reward) +"_"+str(valid_NDCG_at_1)+"_"+str(valid_NDCG_at_10)			
+			write_str = str(max_reward) +"_"+str(valid_P1)+"_"+str(valid_P5)			
 			RL_L2R.save_param(write_str, timeDay)
 
 
@@ -205,19 +245,19 @@ def train():
 		# 	RL_L2R.save_param(write_str, timeDay)
 
 		# test evaluation
-		test_predict_label_collection, test_reward = predict(RL_L2R, test_set)				
+		test_predict_label_collection, test_reward, df_test_trec = predict(RL_L2R, test_set)				
+		test_MAP, test_P1, test_P5, test_R5, test_R50  = evaluate_trec_run(df_test_trec)
+		test_result_line = "## epoch {}, test MAP@5 : {}, test_ P@1 : {}, test_P@5 : {}, test_ R@5 : {}, test_ R@50 : {}, \ntest_reward : {}".format(i, test_MAP, test_P1, test_P5, test_R5, test_R50, test_reward[0])
 
-		test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P = evaluation_ranklists(test_predict_label_collection)
-		test_result_line = "## test_MAP : {}, test_NDCG_at_1 : {}, test_NDCG_at_3 : {}, test_NDCG_at_5 : {}, test_NDCG_at_10 : {}, test_NDCG_at_20 : {}, test_MRR@20 : {}, test_P@20 : {}, \ntest_reward : {}".format(test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P, test_reward[0])
 		print (test_result_line)
 		log.write(test_result_line+"\n\n")
 
 
 	# test process
 	
-	test_predict_label_collection, test_reward = predict(RL_L2R, test_set)				
+	test_predict_label_collection, test_reward, df_test_trec = predict(RL_L2R, test_set)				
 
-	test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P = evaluation_ranklists(test_predict_label_collection)
+	test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P = evaluate_trec_run(test_predict_label_collection)
 	test_result_line = "## test_MAP : {}, test_NDCG_at_1 : {}, test_NDCG_at_3 : {}, test_NDCG_at_5 : {}, test_NDCG_at_10 : {}, test_NDCG_at_20 : {}, test_MRR@20 : {}, test_P@20 : {}, \ntest_reward : {}".format(test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P, test_reward[0])
 	print (test_result_line)
 	log.write(test_result_line+"\n")

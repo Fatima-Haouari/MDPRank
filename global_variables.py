@@ -1,0 +1,12 @@
+
+Q0 = "Q0"
+TEXT = "text"
+QUERY = "query"
+QUERY_ID = "query_id"
+QID = "qid"
+DOC_NO = "docno"
+DOCID = "docid"
+LABEL = "label"
+RANK = "rank"
+TAG = "tag"
+SCORE = "score"

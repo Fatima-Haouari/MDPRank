@@ -4,6 +4,23 @@ import pandas as pd
 # import platform,os
 # import sklearn
 import numpy as np
+from pyterrier.measures import RR, Success, R, Rprec, P, MAP
+
+import global_variables as gb
+import configure
+
+import pyterrier as pt
+# import os
+# os.environ["JAVA_HOME"] = "/data/watheq/jdk-11.0.7"
+
+if not pt.started():
+	print("Enabling pyterier")
+	pt.init()
+
+
+
+FLAGS = configure.flags.FLAGS
+FLAGS.flag_values_dict()
 
 
 
@@ -125,6 +142,26 @@ def calcu_P_function(label_list):
 	p = float((1.0*true_num)/(1.0*AtP))
 	return p
 
+
+    
+def evaluate_trec_run(df_trec,):
+
+	# evaluate using pyterier
+	qrels_path = FLAGS.QRELS
+	eval_metrics = FLAGS.eval_metrics
+	df_trec[gb.QID] = df_trec[gb.QID].astype(str)
+	df_trec[gb.DOC_NO] = df_trec[gb.DOC_NO].astype(str)
+
+	df_qrels = pd.read_csv(qrels_path, sep="\t", names=[gb.QID, gb.Q0, gb.DOC_NO, gb.LABEL])
+	df_qrels[gb.QID] = df_qrels[gb.QID].astype(str)
+	df_qrels[gb.DOC_NO] = df_qrels[gb.DOC_NO].astype(str)
+	res = pt.Utils.evaluate(df_trec, df_qrels[[gb.QID, gb.DOC_NO, gb.LABEL]], metrics=eval_metrics)
+	# MAP, P1, P5, R5, R50  
+	x = tuple(res[metric] for metric in res)
+	return x
+
+
+
 def evaluation_ranklists(label_collection):
 	# print (label_collection)
 	calcu_MAP = []
@@ -162,3 +199,9 @@ def evaluation_ranklists(label_collection):
 	MRR = np.mean(calcu_MRR)
 	P = np.mean(calcu_P)
 	return MAP,NDCG_at_1,NDCG_at_3,NDCG_at_5,NDCG_at_10,NDCG_at_20,MRR,P
+
+
+
+
+# df_trec = pd.read_csv('curr_run.csv',)
+# evaluate_trec_run(df_trec,)
