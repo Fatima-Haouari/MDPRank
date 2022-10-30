@@ -4,7 +4,7 @@ import os
 import json
 import math
 import copy
-
+import global_variables as gb
 import pandas as pd
 import collections
 # from nltk.corpus import stopwords
@@ -108,7 +108,7 @@ def load_data(data_path):
 	'''
 
 	data_file = os.path.join(data_path)
-	data = pd.read_csv(data_file,header = None,sep="\t",names=["query_ID","doc_ID","feature","flag"],quoting =3).fillna('')
+	data = pd.read_csv(data_file,header = None,sep="\t",names=gb.input_column_names,quoting =3).fillna('')
 	
 	return data
 
