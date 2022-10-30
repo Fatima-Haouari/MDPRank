@@ -154,12 +154,21 @@ def calcu_immediate_reward(current_step, labels):
 
 	return DCG
 
-	
+
+def get_result_message(result_type, res, epoch, reward):
+
+	result_message = "## epoch {},".format(epoch,)
+	for metric in res:
+		result_message += " , " + result_type + "_" + metric + " : " + str(round(res[metric], 4))
+	result_message += "\n" +  result_type + " _reward : {}".format(round(reward, 4))
+	return result_message
+
+
 def train():
 	file_name = FLAGS.file_name
 	train_set = load_data(FLAGS.train_data)
-	test_set =  load_data(FLAGS.train_data)
-	valid_set = load_data(FLAGS.train_data)
+	valid_set = load_data(FLAGS.val_data)
+	test_set =  load_data(FLAGS.test_data)
 	# train_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/trainingset.txt")
 	# test_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/testset.txt")
 	# valid_set = load_data("./pre_prosess/OHSUMED/"+file_name+"/validationset.txt")
@@ -215,8 +224,9 @@ def train():
 
 		# train evaluation
 		train_predict_label_collection, train_reward, df_train_trec = predict(RL_L2R, train_set)	
-		train_MAP, train_P1, train_P5, train_R5, train_R50  = evaluate_trec_run(df_train_trec)
-		train_result_line = "## epoch {}, train MAP@5 : {}, train_ P@1 : {}, train_P@5 : {}, train_ R@5 : {}, train_ R@50 : {}, \ntrain_reward : {}".format(i, train_MAP, train_P1, train_P5, train_R5, train_R50, train_reward[0])
+		train_res = evaluate_trec_run(df_train_trec)
+		train_result_line = get_result_message("train", train_res, epoch=i, reward=train_reward[0])
+		# train_result_line = "## epoch {}, train MAP@5 : {}, train_ P@1 : {}, train_P@5 : {}, train_ R@5 : {}, train_ R@50 : {}, \ntrain_reward : {}".format(i, train_MAP, train_P1, train_P5, train_R5, train_R50,  reward=train_reward[0])
 
 		print (train_result_line)		
 		log.write(train_result_line+"\n")	
@@ -225,8 +235,12 @@ def train():
 		
 		# valid evaluation
 		valid_predict_label_collection, valid_reward, df_dev_trec = predict(RL_L2R, valid_set)	
-		valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50  = evaluate_trec_run(df_dev_trec)
-		valid_result_line = "## epoch {}, valid MAP@5 : {}, valid_ P@1 : {}, valid_P@5 : {}, valid_ R@5 : {}, valid_ R@50 : {}, \nvalid_reward : {}".format(i, valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50, valid_reward[0])
+		val_res = evaluate_trec_run(df_dev_trec)
+		valid_result_line = get_result_message("validation", val_res, epoch=i, reward=valid_reward[0])
+
+		# valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50  = evaluate_trec_run(df_dev_trec)
+		# valid_result_line = "## epoch {}, valid MAP@5 : {}, valid_ P@1 : {}, valid_P@5 : {}, valid_ R@5 : {}, valid_ R@50 : {}, \nvalid_reward : {}".format(i, 
+		# valid_MAP, valid_P1, valid_P5, valid_R5, valid_R50, valid_reward[0])
 
 		print (valid_result_line)
 		log.write(valid_result_line+"\n")
@@ -234,7 +248,7 @@ def train():
 		# save param		
 		if valid_reward > max_reward:
 			max_reward = valid_reward[0] 
-			write_str = str(max_reward) +"_"+str(valid_P1)+"_"+str(valid_P5)			
+			write_str = str(max_reward) +"_P@1_"+str(val_res['P@1'])
 			RL_L2R.save_param(write_str, timeDay)
 
 
@@ -245,9 +259,14 @@ def train():
 		# 	RL_L2R.save_param(write_str, timeDay)
 
 		# test evaluation
-		test_predict_label_collection, test_reward, df_test_trec = predict(RL_L2R, test_set)				
-		test_MAP, test_P1, test_P5, test_R5, test_R50  = evaluate_trec_run(df_test_trec)
-		test_result_line = "## epoch {}, test MAP@5 : {}, test_ P@1 : {}, test_P@5 : {}, test_ R@5 : {}, test_ R@50 : {}, \ntest_reward : {}".format(i, test_MAP, test_P1, test_P5, test_R5, test_R50, test_reward[0])
+		test_predict_label_collection, test_reward, df_test_trec = predict(RL_L2R, test_set)
+
+		test_res = evaluate_trec_run(df_test_trec)
+		test_result_line = get_result_message("test", test_res, epoch=i, reward=test_reward[0])
+
+		# test_MAP, test_P1, test_P5, test_R5, test_R50  = evaluate_trec_run(df_test_trec)
+		# test_result_line = "## epoch {}, test MAP@5 : {}, test_ P@1 : {}, test_P@5 : {}, test_ R@5 : {}, test_ R@50 : {}, \ntest_reward : {}".format(i, test_MAP,
+		# 		 test_P1, test_P5, test_R5, test_R50, test_reward[0])
 
 		print (test_result_line)
 		log.write(test_result_line+"\n\n")
@@ -256,9 +275,11 @@ def train():
 	# test process
 	
 	test_predict_label_collection, test_reward, df_test_trec = predict(RL_L2R, test_set)				
+	test_res = evaluate_trec_run(df_test_trec)
+	test_result_line = get_result_message("test", test_res, epoch='final', reward=test_reward[0])
 
-	test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P = evaluate_trec_run(test_predict_label_collection)
-	test_result_line = "## test_MAP : {}, test_NDCG_at_1 : {}, test_NDCG_at_3 : {}, test_NDCG_at_5 : {}, test_NDCG_at_10 : {}, test_NDCG_at_20 : {}, test_MRR@20 : {}, test_P@20 : {}, \ntest_reward : {}".format(test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P, test_reward[0])
+	# test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P = evaluate_trec_run(test_predict_label_collection)
+	# test_result_line = "## test_MAP : {}, test_NDCG_at_1 : {}, test_NDCG_at_3 : {}, test_NDCG_at_5 : {}, test_NDCG_at_10 : {}, test_NDCG_at_20 : {}, test_MRR@20 : {}, test_P@20 : {}, \ntest_reward : {}".format(test_MAP, test_NDCG_at_1, test_NDCG_at_3, test_NDCG_at_5, test_NDCG_at_10, test_NDCG_at_20, test_MRR, test_P, test_reward[0])
 	print (test_result_line)
 	log.write(test_result_line+"\n")
 

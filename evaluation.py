@@ -4,7 +4,7 @@ import pandas as pd
 # import platform,os
 # import sklearn
 import numpy as np
-from pyterrier.measures import RR, Success, R, Rprec, P, MAP
+from pyterrier.measures import *
 
 import global_variables as gb
 import configure
@@ -157,8 +157,8 @@ def evaluate_trec_run(df_trec,):
 	df_qrels[gb.DOC_NO] = df_qrels[gb.DOC_NO].astype(str)
 	res = pt.Utils.evaluate(df_trec, df_qrels[[gb.QID, gb.DOC_NO, gb.LABEL]], metrics=eval_metrics)
 	# MAP, P1, P5, R5, R50  
-	x = tuple(res[metric] for metric in res)
-	return x
+	# x = tuple(res[metric] for metric in res)
+	return res
 
 
 
