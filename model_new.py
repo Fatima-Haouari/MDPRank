@@ -223,7 +223,8 @@ class QRL_L2R(object):
 		if trainable:
 			loss, index = self.update_network(reward_standard, labels, remain_doc_feature, reduced_matrix)
 		else:
-			index = self.sess.run([self.d_index], feed_dict = {self.input_doc_feature : remain_doc_feature, self.reduced_matrix : reduced_matrix, self.dropout_keep_prob:1.0})
+			index = self.sess.run([self.d_index], feed_dict = {self.input_doc_feature : remain_doc_feature,
+								self.reduced_matrix : reduced_matrix, self.dropout_keep_prob:1.0})
 		return index
 
 
@@ -235,7 +236,9 @@ class QRL_L2R(object):
 			gradBuffer[ix] = grad * 0
 		# exit()
 		# calcu grads
-		tGrad, loss, index = self.sess.run([self.newGrads, self.loss, self.d_index], feed_dict={self.input_doc_feature : doc_features, self.input_y: np.array(labels), self.reduced_matrix: reduced_matrix,	
+		tGrad, loss, index = self.sess.run([self.newGrads, self.loss, self.d_index], 
+												feed_dict={self.input_doc_feature : doc_features, 
+												self.input_y: np.array(labels), self.reduced_matrix: reduced_matrix,	
 											self.tf_rt : np.array(rewards)[:,np.newaxis], self.dropout_keep_prob : 0.5})
 		# print ("tGrad : {}".format(len(tGrad)))
 		for ix, grad in enumerate(tGrad):
