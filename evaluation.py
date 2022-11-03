@@ -13,7 +13,7 @@ import pyterrier as pt
 import os
 #os.environ["JAVA_HOME"] = "/data/watheq/jdk-11.0.7"
 #os.environ["JAVA_HOME"] = "/data/fatima/jdk-11.0.7"
-#os.environ["JAVA_HOME"] = "/data/authority-finder/jdk-11.0.7"
+os.environ["JAVA_HOME"] = "/data/authority-finder/jdk-11.0.7"
 if not pt.started():
 	print("Enabling pyterier")
 	pt.init()
