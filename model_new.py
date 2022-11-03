@@ -45,7 +45,7 @@ class QRL_L2R(object):
 		# self.sess = tf.Session()
 		self.sess.run(tf.global_variables_initializer())
 		# self.current_step = 0
-		self.ep_docs, self.ep_label, self.ep_rs, self.ep_doc_ids = [],[],[], []
+		self.query_docs, self.query_docs_labels, self.query_rewards, self.query_docs_ids = [],[],[], []
 		# self.reduced_matrix = tf.eye(self.feature_dim)
 		# self.tvars = tf.trainable_variables()
 
@@ -174,8 +174,8 @@ class QRL_L2R(object):
 		# ep_doc1 = np.array(self.ep_docs[len(self.ep_docs)-2])[:,np.newaxis]
 		# ep_doc2 = np.array(self.ep_docs[len(self.ep_docs)-1])[:,np.newaxis]
 
-		ep_doc1 = np.array(self.ep_docs[len(self.ep_docs)-2]).reshape((self.feature_dim, 1))		
-		ep_doc2 = np.array(self.ep_docs[len(self.ep_docs)-1]).reshape((self.feature_dim, 1))
+		ep_doc1 = np.array(self.query_docs[len(self.query_docs)-2]).reshape((self.feature_dim, 1))		
+		ep_doc2 = np.array(self.query_docs[len(self.query_docs)-1]).reshape((self.feature_dim, 1))
 		# print ("ep_doc1 : shape : {}".format(ep_doc1.shape))
 		# print ("ep_doc2 : shape : {}".format(ep_doc2.shape))
 		# exit()
@@ -274,8 +274,8 @@ class QRL_L2R(object):
 		return loss, index
 
 
-	def reset_network(self):		
-		self.ep_docs, self.ep_label, self.ep_rs, self.ep_doc_ids = [],[],[],[]
+	def reset_query_transitions(self):		
+		self.query_docs, self.query_docs_labels, self.query_rewards, self.query_docs_ids = [],[],[],[]
 
 	def reward_standardized(self,rewards):
 		standard_rewards = rewards
@@ -311,8 +311,8 @@ class QRL_L2R(object):
 		# label means currently selected document' label
 		# reward means currently selected document' reward
 
-		self.ep_docs.append(doc_feature)
-		self.ep_doc_ids.append(doc_id)
+		self.query_docs.append(doc_feature)
+		self.query_docs_ids.append(doc_id)
 		# self.ep_label.append(label[0])
-		self.ep_label.append(label)
+		self.query_docs_labels.append(label)
 		# self.ep_rs.append(reward)

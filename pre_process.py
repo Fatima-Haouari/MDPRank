@@ -290,8 +290,8 @@ def get_batch(df,feature_dim):
 
 	# exit()
 	for qid in dic:
-		if qid == 8:
-			continue
+		#if qid == 8:
+			#continue
 		out_list = []
 		pairs = dic[qid]
 		shuffle(pairs)
