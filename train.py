@@ -63,31 +63,32 @@ def predict(RL_L2R, dataset, run_save_path = ""):
 	label_collection = []
 	df_trec = pd.DataFrame(columns = [gb.QID, gb.Q0, gb.DOC_NO, gb.RANK, gb.SCORE, gb.TAG])
 
-	for data in get_batch_with_test(dataset, FLAGS.feature_dim):
-		doc_feature = data[0]
-		doc_label = data[1]
-		doc_ids = data[2]
-		doc_len = data[3]
-		qid = data[4]
+	for query_data in get_batch_with_test(dataset, FLAGS.feature_dim):
+		query_docs_features = query_data[0]
+		query_docs_labels = query_data[1]
+		query_docs_ids = query_data[2]
+		query_docs_count = query_data[3]
+		qid = query_data[4]
 
-		for step in range(doc_len):
-			immediate_rewards = calcu_immediate_reward(step, doc_label)
-			selected_doc_index = RL_L2R.choose_doc(step, doc_feature, doc_label, immediate_rewards)
+		for step in range(query_docs_count):
+			immediate_rewards = calcu_immediate_reward(step, query_docs_labels)
+	
+			selected_doc_index = RL_L2R.choose_doc(step, query_docs_features, query_docs_labels, immediate_rewards)
 				
 			# selected_doc_index = RL_L2R.choose_doc(step,doc_feature)
-			current_doc = doc_feature[selected_doc_index]
-			current_label = doc_label[selected_doc_index]
-			current_doc_id = doc_ids[selected_doc_index][0]
-			doc_feature, doc_label = exclude_selected_doc(selected_doc_index, doc_feature, doc_label) 
+			current_doc = query_docs_features[selected_doc_index]
+			current_label = query_docs_labels[selected_doc_index]
+			current_doc_id = query_docs_ids[selected_doc_index][0]
+			query_docs_features, query_docs_labels = exclude_selected_doc(selected_doc_index, query_docs_features, query_docs_labels) 
 			# reward = calcu_reward(step, current_label)
 			# RL_L2R.store_transition(current_doc,current_label,reward)			
 			RL_L2R.store_transition(current_doc, current_label, current_doc_id)
 
-		reward = calcu_reward(RL_L2R.ep_label)
-		label_collection.append(RL_L2R.ep_label)
+		reward = calcu_reward(RL_L2R.query_docs_labels)
+		label_collection.append(RL_L2R.query_docs_labels)
 		reward_sum += reward
-		df_trec = add_new_query(df_trec, qid, RL_L2R.ep_doc_ids)
-		RL_L2R.reset_network()
+		df_trec = add_new_query(df_trec, qid, RL_L2R.query_docs_ids)
+		RL_L2R.reset_query_transitions()
 
 	# save the run
 	if run_save_path != "":
@@ -122,23 +123,23 @@ def exclude_selected_doc(index, doc_feature, doc_label):
 	r_doc_label = np.delete(doc_label, index, 0)
 	return r_doc_feature, r_doc_label
 
-def calcu_reward(ep_rs):
+def calcu_reward(query_docs_labels):
 	# discounted_ep_rs = np.zeros_like(ep_rs)
 	running_add = 0
-	DCG = calcu_DCG(ep_rs) 
-	for t in range(len(ep_rs)):
+	DCG = calcu_DCG(query_docs_labels) 
+	for t in range(len(query_docs_labels)):
 		running_add += (FLAGS.reward_decay**t) * DCG[t]
 		# discounted_ep_rs[t] = runing_add
 
 	return running_add
 
-def calcu_DCG(ep_labels):
+def calcu_DCG(query_docs_labels):
 	DCG = []
-	for i in range(len(ep_labels)):
+	for i in range(len(query_docs_labels)):
 		if i == 0:
-			DCG.append(np.power(2.0, ep_labels[i]) - 1.0)
+			DCG.append(np.power(2.0, query_docs_labels[i]) - 1.0)
 		else:
-			DCG.append((np.power(2.0, ep_labels[i]) - 1.0)/np.log2(i+1))
+			DCG.append((np.power(2.0, query_docs_labels[i]) - 1.0)/np.log2(i+1))
 	# print ("DCG : {}".format(DCG))
 	return DCG
 
@@ -197,19 +198,23 @@ def train():
 		# reward_sum = 0
 		# training process
 		for query_data in get_batch(train_set, FLAGS.feature_dim):
-			docs_features = query_data[0]
-			docs_labels = query_data[1]
-			docs_ids = query_data[2]
-			docs_count = query_data[3]
+			query_docs_features = query_data[0]
+			query_docs_labels = query_data[1]
+			print("len(docs_labels)",len(query_docs_labels))
+			query_docs_ids = query_data[2]
+			query_docs_count = query_data[3]
+			print("len(docs_count)",query_docs_count)
 			qid = query_data[4]
 			# print ("doc_label : {}".format(doc_label))
-			for step in range(docs_count):
-				immediate_rewards = calcu_immediate_reward(step, docs_labels)
-				selected_doc_index = RL_L2R.choose_doc(step, docs_features, docs_labels, immediate_rewards, True)
-				current_doc = docs_features[selected_doc_index]
-				current_label = docs_labels[selected_doc_index]
-				current_doc_id = docs_ids[selected_doc_index]
-				docs_features, docs_labels = exclude_selected_doc(selected_doc_index, docs_features, docs_labels) 
+			for step in range(query_docs_count):
+				immediate_rewards = calcu_immediate_reward(step, query_docs_labels)
+				print(immediate_rewards)
+				print(len(immediate_rewards))
+				selected_doc_index = RL_L2R.choose_doc(step, query_docs_features, query_docs_labels, immediate_rewards, True)
+				current_doc = query_docs_features[selected_doc_index]
+				current_label = query_docs_labels[selected_doc_index]
+				current_doc_id = query_docs_ids[selected_doc_index]
+				query_docs_features, query_docs_labels = exclude_selected_doc(selected_doc_index, query_docs_features, query_docs_labels) 
 				# print (current_label)
 				RL_L2R.store_transition(current_doc,current_label, current_doc_id)
 
@@ -222,7 +227,7 @@ def train():
 			# loss = RL_L2R.learn(reward)
 			RL_L2R.reset_query_transitions()
 			# reward_sum += reward
-			print ("training, qid :{} with_length : {}, reward : {}".format(qid, docs_count, reward))
+			print ("training, qid :{} with_length : {}, reward : {}".format(qid, query_docs_count, reward))
 			# break
 
 		# train evaluation

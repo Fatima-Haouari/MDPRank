@@ -17,7 +17,7 @@ flags.DEFINE_float("dropout_keep_prob",0.5, "Dropout keep probability (default: 
 flags.DEFINE_float("learning_rate", 0.00001, "learn rate( default: 0.0)")
 
 flags.DEFINE_integer("feature_dim", 768, "feature size")
-flags.DEFINE_integer("num_epochs", 20, "Number of training epochs (default: 200)")
+flags.DEFINE_integer("num_epochs", 1, "Number of training epochs (default: 200)")
 flags.DEFINE_string("file_name","Fold2","current_file_name")
 
 # authority finder data paths :
