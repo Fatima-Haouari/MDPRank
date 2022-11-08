@@ -52,12 +52,12 @@ class QRL_L2R(object):
 
 	def _build_net(self):
 		with tf.name_scope("inputs"):
-			self.input_doc_feature = tf.placeholder(tf.float32,[None, self.feature_dim],name = "doc_feature_list")
-			self.idel_doc_feature = tf.placeholder(tf.float32,[None, self.feature_dim],name = "idel_feature")
+			self.input_doc_feature = tf.placeholder(tf.float32,[None, self.feature_dim],name = "doc_feature_list") #None for flexibility in the number of input documents
+			# self.idel_doc_feature = tf.placeholder(tf.float32,[None, self.feature_dim],name = "idel_feature")
 			self.reduced_matrix = tf.placeholder(tf.float32,[self.feature_dim, self.feature_dim],name = "reduced_matrix")
-			self.tf_rt = tf.placeholder(tf.float32,[None,1],name = "reward_value")
+			self.tf_rt = tf.placeholder(tf.float32,[None,1],name = "reward_value") #immediate reward
 			# self.input_y = tf.placeholder(tf.float32,[None,1],name = "ep_label")			
-			self.input_y = tf.placeholder(tf.float32,[None,],name = "ep_label")
+			self.input_y = tf.placeholder(tf.float32,[None,],name = "ep_label") #labels
 
 			self.W1Grad = tf.placeholder(tf.float32, [self.feature_dim, self.layer1_node_num],name='w1_grad')
 			self.b1Grad = tf.placeholder(tf.float32, [self.layer1_node_num,],name='b1_grad')
@@ -79,14 +79,14 @@ class QRL_L2R(object):
 
 		# all_act = tf.matmul(self.input_doc_feature, self.reduced_matrix)
 		all_act = self.param_network(tf.matmul(self.input_doc_feature, self.reduced_matrix), self.dropout_keep_prob)
-
-		# print ("all_act shape : {}".format(all_act.get_shape()))
+        
+		print ("all_act shape : {}".format(all_act.get_shape()))
 
 		scores = tf.diag_part(tf.matmul(all_act, tf.transpose(self.input_doc_feature, perm=[1,0])))
-		print("scores",scores)
+		# print("scores",scores)
 		# print ("scores shape : {}".format(scores.get_shape()))
 
-		prob = tf.nn.softmax(scores, name='prob')			
+		# prob = tf.nn.softmax(scores, name='prob')			
 		# prob = tf.expand_dims(prob,1)
 		# print ("prob shape : {}".format(prob.get_shape()))
 		
@@ -170,7 +170,7 @@ class QRL_L2R(object):
 		print("output",output)
 		return output
 
-	def calcu_reduced_matrix(self,remain_doc_feature):
+	def calcu_reduced_matrix(self,remain_docs_features):
 
 		# calcu t-th reduced matrix
 		
@@ -194,7 +194,7 @@ class QRL_L2R(object):
 
 		out_product = out_product_1_1 + out_product_1_2 + out_product_2_1 + out_product_2_2
 
-		inner_product = np.matmul(remain_doc_feature, remain_doc_feature.T)
+		inner_product = np.matmul(remain_docs_features, remain_docs_features.T)
 		inner_product = np.sum(np.reshape(inner_product,(inner_product.size,)))
 		reduced_matrix = out_product * inner_product
 
@@ -212,26 +212,26 @@ class QRL_L2R(object):
 		return standard_matrix
 	
 
-	def choose_doc(self, current_step, remain_doc_feature, labels, reward, trainable = False):
+	def choose_doc(self, current_step, remain_docs_features, labels, immediate_rewards, trainable = False): #SampleAnEpisode
 		
-		if current_step<2:
+		if current_step<2: #0 or 1
 			reduced_matrix = np.eye(self.feature_dim)
 		else:
-			reduced_matrix = self.calcu_reduced_matrix(remain_doc_feature)
+			reduced_matrix = self.calcu_reduced_matrix(remain_docs_features)
 		#print(reduced_matrix)	
 		#print ("reduced_matrix shape : {}".format(self.reduced_matrix.get_shape()))
 		# index = self.sess.run([self.d_index], feed_dict = {self.input_doc_feature : remain_doc_feature, self.reduced_matrix : reduced_matrix})
 
 		# reward_standard = self.reward_standardized(reward)
-		reward_standard = reward
+		reward_standard = immediate_rewards
 		# print("reward_standard",reward_standard)
 		# print("labels",labels)
 		# print("remain_doc_feature",len(remain_doc_feature))
 		# print("reduced_matrix",len(reduced_matrix))
 		if trainable:
-			loss, index = self.update_network(reward_standard, labels, remain_doc_feature, reduced_matrix)
+			loss, index = self.update_network(reward_standard, labels, remain_docs_features, reduced_matrix)
 		else:
-			index = self.sess.run([self.d_index], feed_dict = {self.input_doc_feature : remain_doc_feature, self.reduced_matrix : reduced_matrix, self.dropout_keep_prob:1.0})
+			index = self.sess.run([self.d_index], feed_dict = {self.input_doc_feature : remain_docs_features, self.reduced_matrix : reduced_matrix, self.dropout_keep_prob:1.0})
 		return index
 
 
@@ -246,7 +246,7 @@ class QRL_L2R(object):
 		tGrad, loss, index = self.sess.run([self.newGrads, self.loss, self.d_index], 
 												feed_dict={self.input_doc_feature : doc_features, 
 												self.input_y: np.array(labels), self.reduced_matrix: reduced_matrix,	
-											self.tf_rt : np.array(rewards)[:,np.newaxis], self.dropout_keep_prob : 0.5})
+												self.tf_rt : np.array(rewards)[:,np.newaxis], self.dropout_keep_prob : 0.5})
 											
 		# print("loss",loss)
 		# print("index",index)

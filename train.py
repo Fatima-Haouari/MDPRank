@@ -84,7 +84,7 @@ def predict(RL_L2R, dataset, run_save_path = ""):
 			# RL_L2R.store_transition(current_doc,current_label,reward)			
 			RL_L2R.store_transition(current_doc, current_label, current_doc_id)
 
-		reward = calcu_reward(RL_L2R.query_docs_labels)
+		reward = calcu_return(RL_L2R.query_docs_labels)
 		label_collection.append(RL_L2R.query_docs_labels)
 		reward_sum += reward
 		df_trec = add_new_query(df_trec, qid, RL_L2R.query_docs_ids)
@@ -95,8 +95,8 @@ def predict(RL_L2R, dataset, run_save_path = ""):
 		if not os.path.isfile(run_save_path):
 			os.makedirs(os.path.dirname(run_save_path), exist_ok=True)
 		df_trec.to_csv(run_save_path, index=False, sep='\t', encoding="utf-8")
-
-
+	print("type(reward_sum)"),type(reward_sum))
+	print("(reward_sum)",reward_sum)
 	return label_collection, reward_sum, df_trec
 
 
@@ -123,7 +123,7 @@ def exclude_selected_doc(index, doc_feature, doc_label):
 	r_doc_label = np.delete(doc_label, index, 0)
 	return r_doc_feature, r_doc_label
 
-def calcu_reward(query_docs_labels):
+def calcu_return(query_docs_labels):
 	# discounted_ep_rs = np.zeros_like(ep_rs)
 	running_add = 0
 	DCG = calcu_DCG(query_docs_labels) 
@@ -197,19 +197,19 @@ def train():
 		j = 1
 		# reward_sum = 0
 		# training process
-		for query_data in get_batch(train_set, FLAGS.feature_dim):
-			query_docs_features = query_data[0]
-			query_docs_labels = query_data[1]
-			print("len(docs_labels)",len(query_docs_labels))
-			query_docs_ids = query_data[2]
-			query_docs_count = query_data[3]
-			print("len(docs_count)",query_docs_count)
+		for query_data in get_batch(train_set, FLAGS.feature_dim): #for each query
+			query_docs_features = query_data[0] #Xn features vectors
+			query_docs_labels = query_data[1] #Yn
+			# print("len(docs_labels)",len(query_docs_labels))
+			query_docs_ids = query_data[2] # Xn documents IDs
+			query_docs_count = query_data[3] #number of documents associated with the query
+			# print("len(docs_count)",query_docs_count)
 			qid = query_data[4]
 			# print ("doc_label : {}".format(doc_label))
 			for step in range(query_docs_count):
-				immediate_rewards = calcu_immediate_reward(step, query_docs_labels)
-				print(immediate_rewards)
-				print(len(immediate_rewards))
+				immediate_rewards = calcu_immediate_reward(step, query_docs_labels) #R: Algorithm 1 reward function
+				# print(immediate_rewards)
+				# print(len(immediate_rewards))
 				selected_doc_index = RL_L2R.choose_doc(step, query_docs_features, query_docs_labels, immediate_rewards, True)
 				current_doc = query_docs_features[selected_doc_index]
 				current_label = query_docs_labels[selected_doc_index]
@@ -219,15 +219,15 @@ def train():
 				RL_L2R.store_transition(current_doc,current_label, current_doc_id)
 
 			# print ("RL_L2R.ep_label : {}".format(RL_L2R.ep_label))
-			reward = calcu_reward(RL_L2R.query_docs_labels)
-			# print (reward)
+			query_return = calcu_return(RL_L2R.query_docs_labels)
+			# print (query_return)
 			# idel_reward, idel_features = calcu_idel_reward(RL_L2R.ep_docs, RL_L2R.ep_label)
-			# ep_rs_norm, loss = RL_L2R.learn(reward)		
-			# ep_rs_norm, loss = RL_L2R.learn(reward, idel_reward, idel_features)
-			# loss = RL_L2R.learn(reward)
+			# ep_rs_norm, loss = RL_L2R.learn(query_return)		
+			# ep_rs_norm, loss = RL_L2R.learn(query_return, idel_reward, idel_features)
+			# loss = RL_L2R.learn(query_return)
 			RL_L2R.reset_query_transitions()
-			# reward_sum += reward
-			print ("training, qid :{} with_length : {}, reward : {}".format(qid, query_docs_count, reward))
+			# reward_sum += query_return
+			print ("training, qid :{} with_length : {}, reward : {}".format(qid, query_docs_count, query_return))
 			# break
 
 		# train evaluation
@@ -253,8 +253,9 @@ def train():
 		print (valid_result_line)
 		log.write(valid_result_line+"\n")
 
-		# save param		
-		if valid_reward > max_reward:
+		# save param	
+		# FIXME
+		if valid_reward > max_reward: #total return 
 			max_reward = valid_reward[0] 
 			write_str = str(max_reward) +"_P@1_"+str(val_res['P@1'])
 			RL_L2R.save_param(write_str, timeDay)
