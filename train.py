@@ -95,7 +95,7 @@ def predict(RL_L2R, dataset, run_save_path = ""):
 		if not os.path.isfile(run_save_path):
 			os.makedirs(os.path.dirname(run_save_path), exist_ok=True)
 		df_trec.to_csv(run_save_path, index=False, sep='\t', encoding="utf-8")
-	print("type(reward_sum)"),type(reward_sum))
+	print("type(reward_sum)",type(reward_sum))
 	print("(reward_sum)",reward_sum)
 	return label_collection, reward_sum, df_trec
 
